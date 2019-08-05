@@ -1,5 +1,15 @@
 # !/bin/bash
 
+check_returnCode() {
+        if [ $1 -eq 0 ]; then
+                echo -e "INFO:.... El proceso se ha ejecutado con éxito"
+        else
+                >&2 echo -e "ERROR:.... El proceso se ha ejecutado con error: $1"
+                echo -e "INFO:Saliendo..."
+                exit $1
+        fi
+}
+
 checkCURL(){
   command -v curl >/dev/null 2>&1 || { installCURL; }
 }
@@ -85,16 +95,20 @@ if [ `id -u` != "0" ]; then
   exit 1
 fi
 
-
 checkCURL
+check_returnCode $?
 
 checkDocker
+check_returnCode $?
 
 checkDockerCompose
+check_returnCode $?
 
 checkJQ
+check_returnCode $?
 
 installLibtool
+check_returnCode $?
 
 echo
 echo "========================================================="

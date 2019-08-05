@@ -1,5 +1,15 @@
 # !/bin/bash
 
+check_returnCode() {
+        if [ $1 -eq 0 ]; then
+                echo -e "INFO:.... El proceso se ha ejecutado con éxito"
+        else
+                >&2 echo -e "ERROR:.... El proceso se ha ejecutado con error: $1"
+                echo -e "INFO:Saliendo..."
+                exit $1
+        fi
+}
+
 checkDependencies(){
   command -v curl >/dev/null 2>&1 || { echo "cURL not found. Please, run install-dependencies.sh as root"; exit 1; }
   command -v docker >/dev/null 2>&1 || { echo "docker not found. Please, run install-dependencies.sh as root"; exit 1; }
@@ -103,14 +113,19 @@ installGeodb(){
 }
 
 checkDependencies
+check_returnCode $?
 
 checkGo
+check_returnCode $?
 
 checkEnvironment
+check_returnCode $?
 
 installFabric
+check_returnCode $?
 
 installGeodb
+check_returnCode $?
 
 echo
 echo "========================================================="
