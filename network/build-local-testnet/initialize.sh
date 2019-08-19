@@ -1,116 +1,40 @@
 #!/bin/bash +x
-
-check_returnCode() {
-        if [ $1 -eq 0 ]; then
-                echo -e "INFO:.... El proceso se ha ejecutado con éxito"
-        else
-                >&2 echo -e "ERROR:.... El proceso se ha ejecutado con error: $1"
-                echo -e "INFO:Saliendo..."
-                exit $1
-        fi
-}
-
-startRootCA(){
-  echo
-  echo "========================================================="
-  echo "Starting Root CA"
-  echo "========================================================="
-  echo
-
-  ./startRootCA.sh
-}
-
-buildCertificates(){
-  echo
-  echo "========================================================="
-  echo "Buildng certificates"
-  echo "========================================================="
-  echo
-
-  ./generate-crypto-materials.sh --orgs $1
-}
-
-genesisBlock(){
-  echo
-  echo "========================================================="
-  echo "Generating Genesis Block"
-  echo "========================================================="
-  echo
-
-  ./channel-config.sh $1
-}
-
-checkIfNetworkExists(){
-  echo
-  echo "========================================================="
-  echo "Checking if network exists"
-  echo "========================================================="
-  echo
-
-  if [ "$(docker network ls | grep ${COMPOSE_PROJECT_NAME}_geodb)" ]; then
-    >&2 echo "Network already exists. Stop the network first"
-    exit 1
-  fi
-}
-
-bringUpNetwork(){
-  echo
-  echo "========================================================="
-  echo "Bringing up the network"
-  echo "========================================================="
-  echo
-  pwd
-  docker-compose -f docker-compose.yaml up -d
-}
-
-operationsWithPeer(){
-  echo
-  echo "========================================================="
-  echo $@ | cut -f2,3 -d" "
-  echo "========================================================="
-  echo
-
-  docker exec clipeer0.operations.geodb.com bash -c "$@"
-}
-
 export COMPOSE_PROJECT_NAME=geodb
 
 dir=`pwd`
 
-checkIfNetworkExists
-check_returnCode $?
-
 # Start root CA
 cd ../CA
-startRootCA
-check_returnCode $?
+./startRootCA.sh
 sleep 1s
 # Build certificates
 cd ..
-buildCertificates operations.geodb.com:1:1:7500:geodb:password:7501
-check_returnCode $?
-sleep 3s
+./generate-crypto-materials.sh --orgs operations.geodb.com:1:1:7500:geodb:password:7501
+sleep 1s
+# ./generate-crypto-materials.sh --orgs org1.com:1:1:7500:geodb:shouldChangeThisPass1234:7502
+# ./generate-crypto-materials.sh --orgs org2.com:1:1:7500:geodb:shouldChangeThisPass1234:7503
 
 # Generate genesis block
 
-genesisBlock $dir
-check_returnCode $?
+./channel-config.sh $dir
+
+# Bootstrap nodes
+cd $dir
+
+if [ "$(docker network ls | grep ${COMPOSE_PROJECT_NAME}_geodb)" ]; then
+  >&2 echo "Network already exists. Stop the network first"
+  exit 1
+fi
 
 # Bring up the network
-
-cd $dir
-bringUpNetwork
-check_returnCode $?
+docker-compose -f docker-compose.yaml up -d
 sleep 3s
 
 # Create the channel on the peer from the genesis block
-operationsWithPeer 'peer channel create -c rewards -f ./channels/rewards.tx -o orderer0.operations.geodb.com:7050' 
-check_returnCode $?
+docker exec clipeer0.operations.geodb.com bash -c 'peer channel create -c rewards -f ./channels/rewards.tx -o orderer0.operations.geodb.com:7050'
 
 # Join the channel
-operationsWithPeer 'peer channel join -b rewards.block'
-check_returnCode $?
+docker exec clipeer0.operations.geodb.com bash -c 'peer channel join -b rewards.block'
 
 # Update anchor peer
-operationsWithPeer 'peer channel update -o orderer0.operations.geodb.com:7050 -c rewards -f ./channels/geodbanchor.tx'
-check_returnCode $?
+docker exec clipeer0.operations.geodb.com bash -c 'peer channel update -o orderer0.operations.geodb.com:7050 -c rewards -f ./channels/geodbanchor.tx'
