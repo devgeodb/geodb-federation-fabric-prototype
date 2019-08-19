@@ -2,12 +2,10 @@
 
 check_returnCode() {
         if [ $1 -eq 0 ]; then
-                echo -e "INFO:.... Proccess Succeed"
+                echo -e "INFO:.... El proceso se ha ejecutado con éxito"
         else
-                >&2 echo -e "ERROR:.... Proccess ERROR: $1"
-		cd $dir
-		./reset.sh
-		echo -e "INFO: System has been reloaded to stable previous point. However, please check errors, check if system has been properly reloaded and retry if it's ok..."
+                >&2 echo -e "ERROR:.... El proceso se ha ejecutado con error: $1"
+                echo -e "INFO:Saliendo..."
                 exit $1
         fi
 }
@@ -80,6 +78,7 @@ export COMPOSE_PROJECT_NAME=geodb
 dir=`pwd`
 
 checkIfNetworkExists
+check_returnCode $?
 
 # Start root CA
 cd ../CA
